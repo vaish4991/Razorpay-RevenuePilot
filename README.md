@@ -1,76 +1,76 @@
 # Razorpay RevenuePilot
 
-AI-powered commerce and growth platform foundation for the **Razorpay AI Builder Internship 2026 (Track 1: AI Growth & Agentic Commerce)**.
+AI-powered commerce and growth platform for the **Razorpay AI Builder Internship 2026 (Track 1: AI Growth & Agentic Commerce)**.
 
 ## Project overview
-Razorpay RevenuePilot is being built as a working, production-minded platform where customers discover and buy merchant products through a conversational AI experience, while all financial actions remain deterministic, auditable, and server-controlled.
+Razorpay RevenuePilot is being built incrementally as a production-minded system where customer shopping journeys are AI-assisted, but financial actions are deterministic, auditable, and server-controlled.
 
-## Problem statement
-Modern commerce funnels lose conversions when product discovery, recommendations, and checkout feel fragmented. This project aims to unify:
-- conversational product discovery,
-- explainable AI recommendations,
-- deterministic cart and pricing logic,
-- explicit user approval before payment,
-- Razorpay test-mode payment orchestration,
-- merchant-facing analytics and auditability.
+## Current implementation status
+- ✅ Stage 1: Next.js + TypeScript + Tailwind foundation
+- ✅ Stage 2: Database foundation with Prisma + PostgreSQL schema and deterministic synthetic catalog seed
+- ⏭️ Next stages: agent orchestration, cart/checkout APIs, Razorpay test-mode order flow, analytics, and audit workflows
 
-## Proposed solution
-This repository now contains a clean application foundation that separates UI, agent orchestration boundaries, business services, validation, API routes, and database modules. It is designed for incremental delivery of guarded financial workflows rather than direct LLM-controlled transactions.
+## Database architecture (implemented)
+Prisma schema is defined in `prisma/schema.prisma` with these core models:
 
-## Architecture overview
-Initial architecture (implemented now):
-- **Next.js App Router + TypeScript** base app shell.
-- **Tailwind CSS** for UI styling.
-- **API health-check route** at `GET /api/health`.
-- **Safety-focused env handling** in `src/lib/env.ts` and `.env.example`.
-- **Domain-oriented folder structure**:
-  - `src/app` → UI routes and API handlers
-  - `src/components/ui` → reusable UI primitives
-  - `src/agent` → agent interfaces/orchestration boundary
-  - `src/services` → business logic/services
-  - `src/database` → DB access layer entrypoints
-  - `src/validation` → schemas and deterministic policy validation
-  - `tests` → automated test suites (Vitest)
+- `Merchant`
+- `Product`
+- `Customer`
+- `Order`
+- `OrderItem`
+- `Cart`
+- `CartItem`
+- `AuditEvent`
 
-Planned runtime design (next iterations):
-- LLM tool/function calling with explicit action allowlists.
-- Server-side deterministic policy layer for cart total, payment amount, idempotency, and approval checks.
-- Prisma + PostgreSQL for products, carts, orders, payments, analytics, and audit logs.
-- Razorpay test-mode order/payment integration behind service boundaries.
+Enums implemented:
+- `OrderStatus`
+- `CartStatus`
+- `AuditActorType`
 
-## Planned features (incremental)
-1. Synthetic product catalog + searchable APIs.
-2. Conversational shopping flow with tool-called catalog search.
-3. Cart create/update flows with validated totals.
-4. Explicit checkout approval gate before payment initiation.
-5. Razorpay test-mode order creation and payment status handling.
-6. Merchant analytics dashboard (orders, conversion, AOV, upsell acceptance, payment success, incremental revenue estimate).
-7. Audit trail for agent decisions and financial events.
+Design rules implemented:
+- All money fields use integer paise (`Int`) only.
+- Product/order/cart items preserve unit and total line pricing for historical correctness.
+- Unique constraints and indexes are added for merchant/product slugs, customer references, status queries, and entity audit lookups.
+- No Razorpay secrets, card data, or payment credentials are stored in database models.
+
+## Synthetic commerce seed (implemented)
+`prisma/seed.ts` creates deterministic demo data for one merchant:
+- Merchant: **NovaCart Electronics**
+- 30+ products across realistic categories (headphones, keyboards, mice, webcams, microphones, laptop stands, USB hubs, monitors, chargers, accessories)
+- Related-product metadata links for future recommendation testing
+- Multiple synthetic customers for future conversion/order analytics scenarios
+
+## Server-only database client
+- Prisma client entrypoint: `src/database/client.ts`
+- Uses `server-only` to prevent accidental client-side imports in React components
+- Re-exported from `src/database/index.ts`
+
+## Validation utilities and tests
+Commerce validation helpers in `src/validation/commerce.ts` enforce:
+- integer paise money values
+- non-negative prices
+- positive integer quantities
+- integer-safe cart/order total calculations
+
+Tests in `tests/validation/commerce.test.ts` cover these rules.
 
 ## Technology stack
 - Next.js (App Router)
 - TypeScript
 - Tailwind CSS
+- PostgreSQL
+- Prisma
+- Vitest
 - ESLint
 - Prettier
-- Vitest
-- PostgreSQL + Prisma (planned in next step)
-- Razorpay test-mode APIs (planned in next step)
-
-## Security principles
-- Never expose secrets to client-side code.
-- Keep all financial actions server-side.
-- Require explicit customer approval before payment actions.
-- Enforce deterministic validation/guardrails at every financial boundary.
-- Use strict allowlisted tool/actions for agent behavior.
-- Maintain auditable logs for critical decisions and money movement events.
 
 ## Local setup
 ### Prerequisites
 - Node.js 20+
 - npm 10+
+- PostgreSQL (required for running migrations and seeding against a real DB)
 
-### Install
+### Install dependencies
 ```bash
 npm install
 ```
@@ -79,23 +79,25 @@ npm install
 ```bash
 cp .env.example .env.local
 ```
-Then fill values in `.env.local` with **test/synthetic** credentials only.
+Set `DATABASE_URL` to your PostgreSQL instance.
 
-### Run development server
+### Prisma commands
 ```bash
-npm run dev
+npm run prisma:validate
+npm run prisma:generate
+npm run db:seed
 ```
 
-### Validation commands
+### App quality checks
 ```bash
 npm run lint
 npm run typecheck
 npm run test
 npm run build
-npm run format
 ```
 
-## Current status
-✅ Foundation complete (app shell, structure, lint/format/test/build tooling, health endpoint).
-
-⏭️ Next: implement synthetic catalog + guarded service layer before any payment code.
+## Security principles
+- Financial actions remain server-side only.
+- LLM actions will be constrained via explicit tool/function boundaries.
+- Deterministic validation guardrails are required at financial boundaries.
+- Important decisions and financial events are designed to be auditable.

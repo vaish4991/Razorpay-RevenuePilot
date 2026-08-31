@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAYMENT_PENDING
+  PAID
+  PAYMENT_FAILED
+  CANCELLED
+}
+
+enum CartStatus {
+  ACTIVE
+  CHECKOUT_PENDING
+  CONVERTED
+  ABANDONED
+}
+
+enum AuditActorType {
+  CUSTOMER
+  MERCHANT
+  AGENT
+  SYSTEM
+}
+
+model Merchant {
+  id         String       @id @default(cuid())
+  name       String
+  slug       String       @unique
+  currency   String
+  products   Product[]
+  customers  Customer[]
+  orders     Order[]
+  carts      Cart[]
+  auditEvents AuditEvent[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model Product {
+  id                String    @id @default(cuid())
+  merchantId        String
+  merchant          Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  name              String
+  slug              String
+  description       String
+  category          String
+  priceInPaise      Int
+  currency          String
+  inventoryQuantity Int
+  active            Boolean   @default(true)
+  metadata          Json?
+  orderItems        OrderItem[]
+  cartItems         CartItem[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([merchantId, slug])
+  @@index([merchantId, category])
+  @@index([merchantId, active])
+}
+
+model Customer {
+  id                String    @id @default(cuid())
+  merchantId        String
+  merchant          Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  externalReference String
+  name              String?
+  email             String?
+  orders            Order[]
+  carts             Cart[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([merchantId, externalReference])
+  @@index([merchantId, email])
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  merchantId       String
+  merchant         Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId       String?
+  customer         Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status           OrderStatus @default(DRAFT)
+  currency         String
+  subtotalInPaise  Int
+  totalInPaise     Int
+  razorpayOrderId  String?
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([merchantId, status])
+  @@index([customerId])
+  @@index([razorpayOrderId])
+}
+
+model OrderItem {
+  id               String   @id @default(cuid())
+  orderId          String
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity         Int
+  unitPriceInPaise Int
+  totalPriceInPaise Int
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Cart {
+  id              String     @id @default(cuid())
+  merchantId      String
+  merchant        Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId      String?
+  customer        Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status          CartStatus @default(ACTIVE)
+  currency        String
+  subtotalInPaise Int
+  totalInPaise    Int
+  items           CartItem[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([merchantId, status])
+  @@index([customerId])
+}
+
+model CartItem {
+  id               String   @id @default(cuid())
+  cartId           String
+  cart             Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity         Int
+  unitPriceInPaise Int
+  totalPriceInPaise Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
+}
+
+model AuditEvent {
+  id         String        @id @default(cuid())
+  merchantId String
+  merchant   Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  actorType  AuditActorType
+  action     String
+  entityType String
+  entityId   String
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime      @default(now())
+
+  @@index([merchantId, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorType, action])
+}
