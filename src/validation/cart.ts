@@ -20,9 +20,10 @@ export function parseCreateCartInput(payload: unknown): CreateCartInput {
     return {};
   }
 
+  const body = payload as Record<string, unknown>;
   const customerExternalReference =
-    typeof (payload as Record<string, unknown>).customerExternalReference === "string"
-      ? (payload as Record<string, string>).customerExternalReference.trim() || undefined
+    typeof body.customerExternalReference === "string"
+      ? body.customerExternalReference.trim() || undefined
       : undefined;
 
   return { customerExternalReference };
@@ -33,14 +34,15 @@ export function parseAddCartItemInput(payload: unknown): AddCartItemInput {
     throw new ServiceError("BAD_REQUEST", "Request body must be an object");
   }
 
-  const productId = (payload as Record<string, unknown>).productId;
-  const quantity = (payload as Record<string, unknown>).quantity;
+  const body = payload as Record<string, unknown>;
+  const productId = body.productId;
+  const quantity = body.quantity;
 
   if (typeof productId !== "string" || !productId.trim()) {
     throw new ServiceError("BAD_REQUEST", "productId is required");
   }
 
-  if (!Number.isInteger(quantity)) {
+  if (typeof quantity !== "number" || !Number.isInteger(quantity)) {
     throw new ServiceError("BAD_REQUEST", "quantity must be an integer");
   }
 
@@ -57,7 +59,7 @@ export function parseUpdateCartItemInput(payload: unknown): UpdateCartItemInput 
 
   const quantity = (payload as Record<string, unknown>).quantity;
 
-  if (!Number.isInteger(quantity)) {
+  if (typeof quantity !== "number" || !Number.isInteger(quantity)) {
     throw new ServiceError("BAD_REQUEST", "quantity must be an integer");
   }
 

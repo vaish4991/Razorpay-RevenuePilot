@@ -1,11 +1,11 @@
-import { RevenuePilotApp } from "@/components/commerce/revenuepilot-app";
+import { ActivityFeed } from "@/components/commerce/activity-feed";
 import { TopNav } from "@/components/layout/top-nav";
 
-export default function Home() {
+export default function ActivityPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <TopNav />
-      <RevenuePilotApp />
+      <ActivityFeed />
     </main>
   );
 }

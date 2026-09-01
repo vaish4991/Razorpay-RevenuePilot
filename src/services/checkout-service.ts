@@ -68,19 +68,25 @@ export async function validateCheckout(
     errors.push("Cart is empty");
   }
 
+  const productIds = recalculated.items.map((item) => item.productId);
+  const products = await prisma.product.findMany({
+    where: {
+      merchantId: input.merchantId,
+      id: { in: productIds },
+    },
+    select: {
+      id: true,
+      active: true,
+      inventoryQuantity: true,
+      currency: true,
+      priceInPaise: true,
+    },
+  });
+
+  const productMap = new Map(products.map((product) => [product.id, product]));
+
   for (const item of recalculated.items) {
-    const product = await prisma.product.findFirst({
-      where: {
-        id: item.productId,
-        merchantId: input.merchantId,
-      },
-      select: {
-        id: true,
-        active: true,
-        inventoryQuantity: true,
-        currency: true,
-      },
-    });
+    const product = productMap.get(item.productId);
 
     if (!product) {
       errors.push(`Product ${item.productId} no longer exists`);
@@ -93,6 +99,10 @@ export async function validateCheckout(
 
     if (item.quantity > product.inventoryQuantity) {
       errors.push(`Insufficient inventory for product ${item.productId}`);
+    }
+
+    if (item.unitPriceInPaise !== product.priceInPaise) {
+      errors.push(`Stale pricing detected for product ${item.productId}`);
     }
 
     if (product.currency !== recalculated.currency) {
@@ -154,6 +164,15 @@ export async function approveCheckout(
     reason?: string;
   },
 ) {
+  await recordAuditEvent(prisma, {
+    merchantId: input.merchantId,
+    actorType: input.actorType ?? "CUSTOMER",
+    action: AUDIT_ACTIONS.CHECKOUT_APPROVAL_REQUESTED,
+    entityType: "CART",
+    entityId: input.cartId,
+    reason: input.reason,
+  });
+
   const validation = await validateCheckout(prisma, {
     merchantId: input.merchantId,
     cartId: input.cartId,
@@ -183,6 +202,18 @@ export async function approveCheckout(
         status: "INVALIDATED",
         invalidatedAt: new Date(),
         invalidationReason: "Superseded by a new approval",
+      },
+    });
+
+    await recordAuditEvent(prisma, {
+      merchantId: input.merchantId,
+      actorType: input.actorType ?? "CUSTOMER",
+      action: AUDIT_ACTIONS.CHECKOUT_APPROVAL_INVALIDATED,
+      entityType: "CHECKOUT_APPROVAL",
+      entityId: existingApproved.id,
+      reason: "Superseded by a new approval",
+      metadata: {
+        cartId: input.cartId,
       },
     });
   }

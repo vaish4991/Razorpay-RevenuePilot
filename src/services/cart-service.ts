@@ -126,19 +126,52 @@ async function getCartWithItems(prisma: PrismaClient, merchantId: string, cartId
   return cart;
 }
 
-async function invalidateApprovalsForCart(prisma: PrismaClient, merchantId: string, cartId: string, reason: string) {
-  await prisma.checkoutApproval.updateMany({
+async function invalidateApprovalsForCart(
+  prisma: PrismaClient,
+  merchantId: string,
+  cartId: string,
+  reason: string,
+  actorType: AuditActorType = "SYSTEM",
+) {
+  const activeApprovals = await prisma.checkoutApproval.findMany({
     where: {
       merchantId,
       cartId,
       status: "APPROVED",
     },
+    select: { id: true },
+  });
+
+  if (activeApprovals.length === 0) {
+    return;
+  }
+
+  const invalidatedAt = new Date();
+
+  await prisma.checkoutApproval.updateMany({
+    where: {
+      id: { in: activeApprovals.map((approval) => approval.id) },
+    },
     data: {
       status: "INVALIDATED",
-      invalidatedAt: new Date(),
+      invalidatedAt,
       invalidationReason: reason,
     },
   });
+
+  for (const approval of activeApprovals) {
+    await recordAuditEvent(prisma, {
+      merchantId,
+      actorType,
+      action: AUDIT_ACTIONS.CHECKOUT_APPROVAL_INVALIDATED,
+      entityType: "CHECKOUT_APPROVAL",
+      entityId: approval.id,
+      reason,
+      metadata: {
+        cartId,
+      },
+    });
+  }
 }
 
 export async function recalculateCart(prisma: PrismaClient, merchantId: string, cartId: string) {
@@ -197,7 +230,7 @@ export async function recalculateCart(prisma: PrismaClient, merchantId: string, 
   }
 
   if (hasChanges) {
-    await invalidateApprovalsForCart(prisma, merchantId, cartId, "Cart changed after approval");
+    await invalidateApprovalsForCart(prisma, merchantId, cartId, "Cart changed after approval", "SYSTEM");
   }
 
   const finalCart = await getCartWithItems(prisma, merchantId, cartId);
@@ -259,18 +292,20 @@ export async function addCartItem(
     select: { id: true, quantity: true },
   });
 
+  let finalQuantity = input.quantity;
+
   if (existingItem) {
-    const newQuantity = existingItem.quantity + input.quantity;
-    if (newQuantity > product.inventoryQuantity) {
+    finalQuantity = existingItem.quantity + input.quantity;
+    if (finalQuantity > product.inventoryQuantity) {
       throw new ServiceError("PRECONDITION_FAILED", "Insufficient inventory");
     }
 
     await prisma.cartItem.update({
       where: { id: existingItem.id },
       data: {
-        quantity: newQuantity,
+        quantity: finalQuantity,
         unitPriceInPaise: product.priceInPaise,
-        totalPriceInPaise: product.priceInPaise * newQuantity,
+        totalPriceInPaise: product.priceInPaise * finalQuantity,
       },
     });
   } else {
@@ -295,7 +330,7 @@ export async function addCartItem(
     entityId: input.cartId,
     metadata: {
       productId: product.id,
-      quantity: input.quantity,
+      quantity: finalQuantity,
       unitPriceInPaise: product.priceInPaise,
     },
   });
