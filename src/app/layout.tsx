@@ -3,16 +3,14 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Razorpay RevenuePilot",
-  description: "AI-powered commerce and growth platform foundation",
+  title: "RevenuePilot AI",
+  description: "Turn conversations into conversions.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full bg-zinc-50 font-sans text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
-        {children}
-      </body>
+      <body className="min-h-full bg-slate-50 font-sans text-slate-950">{children}</body>
     </html>
   );
 }

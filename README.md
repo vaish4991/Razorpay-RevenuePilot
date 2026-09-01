@@ -1,103 +1,173 @@
-# Razorpay RevenuePilot
+# RevenuePilot AI
 
-AI-powered commerce and growth platform for the **Razorpay AI Builder Internship 2026 (Track 1: AI Growth & Agentic Commerce)**.
+**Turn conversations into conversions.**
 
-## Project overview
-Razorpay RevenuePilot is being built incrementally as a production-minded system where customer shopping journeys are AI-assisted, but financial actions are deterministic, auditable, and server-controlled.
+RevenuePilot AI is a working Track 1 submission for the **Razorpay AI Builder Internship 2026**. It demonstrates a full deterministic commerce flow with agent-guided discovery, carting, checkout validation, explicit approval, payment boundary handling, auditability, and metrics.
 
-## Current implementation status
-- ✅ Stage 1: Next.js + TypeScript + Tailwind foundation
-- ✅ Stage 2: Database foundation with Prisma + PostgreSQL schema and deterministic synthetic catalog seed
-- ⏭️ Next stages: agent orchestration, cart/checkout APIs, Razorpay test-mode order flow, analytics, and audit workflows
+## Track selection
+- **Track**: AI Growth & Agentic Commerce (Track 1)
+- **Merchant (synthetic)**: NovaCart Electronics
+- **Mode**: Demo-first, with optional Razorpay test-mode boundary when credentials are configured
 
-## Database architecture (implemented)
-Prisma schema is defined in `prisma/schema.prisma` with these core models:
+## Problem
+Merchants lose growth when discovery, recommendations, cart, and checkout are disconnected and hard to optimize.
 
-- `Merchant`
-- `Product`
-- `Customer`
-- `Order`
-- `OrderItem`
-- `Cart`
-- `CartItem`
-- `AuditEvent`
+## Solution
+RevenuePilot AI unifies these stages through a constrained agentic workflow:
 
-Enums implemented:
-- `OrderStatus`
-- `CartStatus`
-- `AuditActorType`
+Conversation → intent extraction → catalog search → explainable recommendations → cart operations → checkout validation → explicit human approval → payment boundary → audit events → metrics.
 
-Design rules implemented:
-- All money fields use integer paise (`Int`) only.
-- Product/order/cart items preserve unit and total line pricing for historical correctness.
-- Unique constraints and indexes are added for merchant/product slugs, customer references, status queries, and entity audit lookups.
-- No Razorpay secrets, card data, or payment credentials are stored in database models.
+## Business impact focus
+The product tracks and surfaces growth-significant events:
+- conversations
+- product searches
+- recommendations
+- add-to-cart actions
+- checkout validations
+- approvals
+- conversions
+- conversion rate
+- revenue influenced
+- average order value
 
-## Synthetic commerce seed (implemented)
-`prisma/seed.ts` creates deterministic demo data for one merchant:
-- Merchant: **NovaCart Electronics**
-- 30+ products across realistic categories (headphones, keyboards, mice, webcams, microphones, laptop stands, USB hubs, monitors, chargers, accessories)
-- Related-product metadata links for future recommendation testing
-- Multiple synthetic customers for future conversion/order analytics scenarios
+Metrics are derived from recorded demo activity and orders, labeled as synthetic demo metrics.
 
-## Server-only database client
-- Prisma client entrypoint: `src/database/client.ts`
-- Uses `server-only` to prevent accidental client-side imports in React components
-- Re-exported from `src/database/index.ts`
+## Architecture
 
-## Validation utilities and tests
-Commerce validation helpers in `src/validation/commerce.ts` enforce:
-- integer paise money values
-- non-negative prices
-- positive integer quantities
-- integer-safe cart/order total calculations
+Client → API Routes → Validation → Deterministic Services → Prisma/PostgreSQL
 
-Tests in `tests/validation/commerce.test.ts` cover these rules.
+### Core services
+- `catalog-service`: merchant-scoped search/filter/pagination/sort and product lookup
+- `cart-service`: create/get/add/update/remove/clear/recalculate with authoritative pricing and inventory checks
+- `checkout-service`: eligibility validation, approval creation, approval verification
+- `payment-service`: demo payment provider + optional Razorpay test order provider
+- `audit-service`: typed audit event recording for critical actions
+- `activity-service`: audit feed retrieval
+- `metrics-service`: business metric aggregation
 
-## Technology stack
+### Agent architecture
+- Agent implementation under `src/agent/`
+- Deterministic intent parser and recommendation scorer
+- Tool allowlist (`searchProducts`, `getProduct`, `createCart`, `getCart`, `addToCart`, `updateCartItem`, `removeFromCart`, `clearCart`, `validateCheckout`, `requestCheckoutApproval`)
+- Agent cannot execute SQL, bypass approval, alter prices, alter inventory, or access unrestricted merchant/customer resources
+
+### Tool safety and trust boundaries
+- LLM/direct AI does not get raw DB access
+- API inputs are validated
+- Monetary arithmetic uses integer paise only
+- Product price/inventory are read from DB as source of truth
+- Approval must match exact cart amount/currency and cart snapshot state
+- Cart mutation invalidates prior approval
+
+### Checkout approval boundary
+Approvals are stored in `CheckoutApproval` and bound to:
+- merchant
+- cart
+- customer (optional)
+- exact amount in paise
+- currency
+- cart `updatedAt` snapshot
+- approval status lifecycle (`APPROVED`, `INVALIDATED`, `CONSUMED`)
+
+### Payment boundary
+- **DemoPaymentProvider** (default): no real money charged, creates internal order and audit events
+- **Razorpay test provider** (optional): creates Razorpay test-mode order if credentials exist
+
+## Auditability
+Audit events capture agent/user/system action trails including cart lifecycle, validation, approval, invalidation, and payment boundary outcomes.
+
+## Synthetic data
+Seeded dataset includes:
+- one merchant: NovaCart Electronics
+- 33 products across categories (headphones, keyboards, mice, webcams, microphones, laptop stands, USB hubs, monitors, chargers, accessories)
+- related-product metadata for cross-sell reasoning
+- synthetic customers for demo checkout/metrics flows
+
+## Tech stack
 - Next.js (App Router)
 - TypeScript
 - Tailwind CSS
 - PostgreSQL
-- Prisma
+- Prisma 6.19.3
 - Vitest
 - ESLint
 - Prettier
 
-## Local setup
-### Prerequisites
-- Node.js 20+
-- npm 10+
-- PostgreSQL (required for running migrations and seeding against a real DB)
+## Security principles
+- server-side secrets only
+- deterministic service boundaries
+- no floating-point money math
+- merchant isolation
+- inventory and checkout validation before payment boundary
+- explicit customer approval before payment execution
+- audit logging for financial and agent-critical actions
 
-### Install dependencies
+## Environment setup
+Create `.env.local` from `.env.example`.
+
+Required baseline:
+- `DATABASE_URL` (PostgreSQL)
+- `DEMO_MERCHANT_SLUG` (defaults to `novacart-electronics`)
+
+Optional:
+- `LLM_API_KEY` (for optional provider mode label; deterministic tools remain enforced)
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` (for Razorpay test order creation boundary)
+
+## PostgreSQL and Prisma
 ```bash
 npm install
-```
-
-### Configure environment
-```bash
-cp .env.example .env.local
-```
-Set `DATABASE_URL` to your PostgreSQL instance.
-
-### Prisma commands
-```bash
 npm run prisma:validate
 npm run prisma:generate
 npm run db:seed
 ```
 
-### App quality checks
+Apply migrations against a live PostgreSQL instance as usual:
+```bash
+npx prisma migrate deploy
+```
+
+## Development
+```bash
+npm run dev
+```
+
+## Tests
+```bash
+npm run test
+```
+
+## Lint/type/build
 ```bash
 npm run lint
 npm run typecheck
-npm run test
 npm run build
 ```
 
-## Security principles
-- Financial actions remain server-side only.
-- LLM actions will be constrained via explicit tool/function boundaries.
-- Deterministic validation guardrails are required at financial boundaries.
-- Important decisions and financial events are designed to be auditable.
+## Demo walkthrough
+1. Open `/`
+2. Enter prompt: **"I need wireless headphones for remote work under ₹8,000"**
+3. Review interpretation + recommendations
+4. Add products to cart and adjust quantities
+5. Click validate checkout
+6. Explicitly approve exact amount
+7. Execute demo/test payment boundary
+8. Open `/activity` to inspect audit events
+9. Open `/products` for deterministic catalog exploration
+
+## Demo mode vs Razorpay test mode vs production
+- **Demo Mode**: deterministic synthetic data, demo payment provider, no real money
+- **Razorpay Test Mode**: optional external test order creation if credentials are configured
+- **Production**: not implemented in this submission (auth, real payment settlement, and operational hardening required)
+
+## Limitations
+- No production authentication/authorization layer yet (demo merchant context only)
+- No semantic vector search/embeddings yet
+- Optional LLM mode currently remains deterministic and tool-constrained
+- Real payment capture/verification workflow beyond test-boundary order creation is out of scope
+
+## Future improvements
+- Production auth and tenant isolation
+- Stronger order/payment reconciliation workflows
+- atomic inventory decrement during confirmed order/payment state transitions
+- richer recommendation strategies and online learning loops
+- observability dashboards and merchant cohort analytics
