@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { formatPaise } from "@/lib/money";
 
@@ -45,13 +45,13 @@ export function ProductsCatalog() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function fetchProducts() {
+  async function fetchProducts(targetPage = page) {
     setLoading(true);
     setError("");
 
     try {
       const params = new URLSearchParams({
-        page: String(page),
+        page: String(targetPage),
         pageSize: "12",
         sortBy,
         sortOrder: "asc",
@@ -72,12 +72,21 @@ export function ProductsCatalog() {
       }
 
       const response = await fetch(`/api/catalog/products?${params.toString()}`);
-      const payload = (await response.json()) as SearchResult | { error?: { message?: string } };
+      const payload = (await response.json()) as
+        | SearchResult
+        | {
+            error?: {
+              message?: string;
+            };
+          };
+
       if (!response.ok) {
-        throw new Error(payload.error?.message ?? "Unable to fetch products");
+        const responseError = "error" in payload ? payload.error?.message : undefined;
+        throw new Error(responseError ?? "Unable to fetch products");
       }
 
       setResult(payload as SearchResult);
+      setPage(targetPage);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to fetch products");
       setResult(null);
@@ -85,10 +94,6 @@ export function ProductsCatalog() {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    void fetchProducts();
-  }, [page, sortBy]);
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
@@ -142,14 +147,16 @@ export function ProductsCatalog() {
           type="button"
           className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
           onClick={() => {
-            setPage(1);
-            void fetchProducts();
+            void fetchProducts(1);
           }}
         >
           Apply Filters
         </button>
       </div>
 
+      {!result && !loading && !error ? (
+        <p className="text-sm text-slate-500">Apply filters to load products.</p>
+      ) : null}
       {loading ? <p className="text-sm text-slate-500">Loading products...</p> : null}
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
@@ -174,16 +181,20 @@ export function ProductsCatalog() {
             <button
               type="button"
               className="rounded border px-3 py-1 disabled:opacity-50"
-              disabled={result.page <= 1}
-              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              disabled={result.page <= 1 || loading}
+              onClick={() => {
+                void fetchProducts(result.page - 1);
+              }}
             >
               Previous
             </button>
             <button
               type="button"
               className="rounded border px-3 py-1 disabled:opacity-50"
-              disabled={result.page >= result.totalPages}
-              onClick={() => setPage((value) => value + 1)}
+              disabled={result.page >= result.totalPages || loading}
+              onClick={() => {
+                void fetchProducts(result.page + 1);
+              }}
             >
               Next
             </button>

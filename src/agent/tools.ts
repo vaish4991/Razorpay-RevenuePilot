@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import type { CartSummary } from "@/services/cart-service";
 import type { SearchProductsInput } from "@/validation/catalog";
 
@@ -11,6 +13,7 @@ export type AgentProduct = {
   currency: string;
   inventoryQuantity: number;
   active: boolean;
+  metadata?: Prisma.JsonValue;
 };
 
 export type AgentTools = {

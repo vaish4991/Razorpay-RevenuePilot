@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { formatPaise } from "@/lib/money";
 
@@ -111,10 +111,6 @@ export function RevenuePilotApp() {
     const payload = (await readJsonOrThrow(response)) as Metrics;
     setMetrics(payload);
   }
-
-  useEffect(() => {
-    void refreshMetrics().catch(() => undefined);
-  }, []);
 
   async function handleAskAgent() {
     setError("");
@@ -339,14 +335,23 @@ export function RevenuePilotApp() {
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
           />
-          <button
-            type="button"
-            onClick={() => void handleAskAgent()}
-            disabled={loading}
-            className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            {loading ? "Analyzing..." : "Ask RevenuePilot AI"}
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleAskAgent()}
+              disabled={loading}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {loading ? "Analyzing..." : "Ask RevenuePilot AI"}
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+              onClick={() => void refreshMetrics()}
+            >
+              Refresh Metrics
+            </button>
+          </div>
           {interpretation ? <p className="mt-4 text-sm text-slate-700">Interpretation: {interpretation}</p> : null}
           {agentMessage ? <p className="mt-2 text-sm text-blue-700">{agentMessage}</p> : null}
           {error ? <p className="mt-2 text-sm text-rose-600">{error}</p> : null}
@@ -503,7 +508,7 @@ export function RevenuePilotApp() {
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900">Business Metrics</h3>
           {!metrics ? (
-            <p className="mt-2 text-sm text-slate-500">Loading metrics...</p>
+            <p className="mt-2 text-sm text-slate-500">Click “Refresh Metrics” to load analytics.</p>
           ) : (
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
               <p>Conversations: {metrics.conversations}</p>
